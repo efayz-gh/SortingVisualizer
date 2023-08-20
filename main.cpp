@@ -19,13 +19,13 @@ sf::Sound highlightSoundB;
 const float maxPitch = 1.5;
 const float minPitch = 0.5;
 
-void visualize(std::vector<int> &array, int updateIndexA = -1, int updateIndexB = -1) {
+void drawArray(sf::RenderTexture &target, std::vector<int> &array, int updateIndexA = -1, int updateIndexB = -1) {
 
-    unsigned int rectWidth = std::max((int) (window.getSize().x / array.size()), 1);
-    unsigned int maxRectHeight = window.getSize().y;
+    unsigned int rectWidth = std::max((int) (target.getSize().x / array.size()), 1);
+    unsigned int maxRectHeight = target.getSize().y;
     int maxElement = *std::max_element(array.begin(), array.end());
 
-    window.clear(sf::Color::Black);
+    target.clear();
 
     // draw rectangles
     for (int i = 0; i < array.size(); i++) {
@@ -38,8 +38,10 @@ void visualize(std::vector<int> &array, int updateIndexA = -1, int updateIndexB 
         // set color red if updated
         rect.setFillColor(i == updateIndexA || i == updateIndexB ? sf::Color::Red : sf::Color::White);
 
-        window.draw(rect);
+        target.draw(rect);
     }
+
+    target.display();
 
     // play sound for highlighted rectangle a
     if (updateIndexA != -1) {
@@ -66,8 +68,9 @@ void visualize(std::vector<int> &array, int updateIndexA = -1, int updateIndexB 
     } else {
         highlightSoundB.pause();
     }
+}
 
-
+void stopButtonWindow() {
     ImGui::Begin("stop", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize
                                   | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoBackground);
     ImGui::SetWindowPos(ImVec2(0, 0));
@@ -83,17 +86,19 @@ void visualize(std::vector<int> &array, int updateIndexA = -1, int updateIndexB 
         throw std::exception();
     }
     ImGui::End();
-
-    ImGui::SFML::Render(window);
-    window.display();
-
-    ImGui::SFML::Update(window, deltaClock.restart());
 }
 
-// custom sleep function that allows for window events to be processed
-void sleepPoll(sf::Time delay) {
-    sf::Clock clock;
-    while (clock.getElapsedTime() < delay) {
+void visualize(std::vector<int> &array, sf::Time delay, int updateIndexA = -1, int updateIndexB = -1) {
+
+    sf::RenderTexture windowTexture;
+    windowTexture.create(window.getSize().x, window.getSize().y);
+
+    drawArray(windowTexture, array, updateIndexA, updateIndexB);
+
+    sf::Sprite visualization(windowTexture.getTexture());
+
+    sf::Clock clock{};
+    do {
         sf::Event event{};
         while (window.pollEvent(event)) {
             ImGui::SFML::ProcessEvent(event);
@@ -105,14 +110,24 @@ void sleepPoll(sf::Time delay) {
                     window.setView(sf::View(sf::FloatRect(0, 0, event.size.width, event.size.height)));
             }
         }
-    }
+
+        ImGui::SFML::Update(window, deltaClock.restart());
+
+        // stop button
+        stopButtonWindow();
+
+        window.clear();
+        window.draw(visualization);
+        ImGui::SFML::Render(window);
+        window.display();
+
+    } while (clock.getElapsedTime() < delay);
 }
 
 void writeVisualize(std::vector<int> &src, std::vector<int> &dst, sf::Time delay) {
     for (int i = 0; i < src.size(); i++) {
         dst[i] = src[i];
-        visualize(dst, i);
-        sleepPoll(delay);
+        visualize(dst, delay, i);
     }
 }
 
@@ -126,8 +141,7 @@ void shuffle(std::vector<int> &array, sf::Time delay = sf::milliseconds(1)) {
         int rand = dis(gen);
 
         std::swap(array[i], array[rand]);
-        visualize(array, i, rand);
-        sleepPoll(delay);
+        visualize(array, delay, i, rand);
     }
 }
 
@@ -144,22 +158,20 @@ void bubbleSort(std::vector<int> &array, sf::Time delay = sf::milliseconds(10)) 
             }
         }
 
-        visualize(array, array.size() - i - 1, lastSwapIndex);
-        sleepPoll(delay);
+        visualize(array, delay, array.size() - i - 1, lastSwapIndex);
     }
 }
 
 void insertionSort(std::vector<int> &array, sf::Time delay = sf::milliseconds(10)) {
 
-    for (int i = 0; i < array.size(); i++) {
+    for (int i = 1; i < array.size(); i++) {
 
         int j;
         for (j = i; j > 0 && array[j] < array[j - 1]; j--) {
             std::swap(array[j], array[j - 1]);
         }
 
-        visualize(array, j - 1, i);
-        sleepPoll(delay);
+        visualize(array, delay, j - 1, i);
     }
 }
 
@@ -172,15 +184,12 @@ void selectionSort(std::vector<int> &array, sf::Time delay = sf::microseconds(25
             if (array[j] < array[minIndex]) {
                 minIndex = j;
 
-                visualize(array, i, minIndex);
-                sleepPoll(delay);
+                visualize(array, delay, i, minIndex);
             }
         }
 
         std::swap(array[i], array[minIndex]);
-        visualize(array, i, minIndex);
-        sleepPoll(delay);
-
+        visualize(array, delay, i, minIndex);
     }
 }
 
@@ -193,8 +202,7 @@ void inplaceHeapSort(std::vector<int> &array, sf::Time delay = sf::microseconds(
 
         while (array[childIndex] < array[parentIndex]) {
             std::swap(array[childIndex], array[parentIndex]);
-            visualize(array, childIndex, parentIndex);
-            sleepPoll(delay);
+            visualize(array, delay, childIndex, parentIndex);
 
             childIndex = parentIndex;
             parentIndex = (childIndex - 1) / 2;
@@ -204,8 +212,7 @@ void inplaceHeapSort(std::vector<int> &array, sf::Time delay = sf::microseconds(
     for (int i = array.size() - 1; i > 0; i--) {
 
         std::swap(array[0], array[i]);
-        visualize(array, 0, i);
-        sleepPoll(delay);
+        visualize(array, delay, 0, i);
 
         int parentIndex = 0;
         int leftChildIndex = 2 * parentIndex + 1;
@@ -228,8 +235,7 @@ void inplaceHeapSort(std::vector<int> &array, sf::Time delay = sf::microseconds(
             }
 
             std::swap(array[parentIndex], array[minIndex]);
-            visualize(array, parentIndex, minIndex);
-            sleepPoll(delay);
+            visualize(array, delay, parentIndex, minIndex);
 
             parentIndex = minIndex;
             leftChildIndex = 2 * parentIndex + 1;
@@ -239,8 +245,7 @@ void inplaceHeapSort(std::vector<int> &array, sf::Time delay = sf::microseconds(
 
     for (int i = 0; i < array.size() / 2; i++) {
         std::swap(array[i], array[array.size() - i - 1]);
-        visualize(array, i, array.size() - i - 1);
-        sleepPoll(delay);
+        visualize(array, delay, i, array.size() - i - 1);
     }
 }
 
@@ -269,13 +274,12 @@ void mergeSort(std::vector<int> &array, sf::Time delay = sf::microseconds(500)) 
                     rightIndex++;
                 }
 
-                visualize(array, j);
-                sleepPoll(delay);
+                visualize(array, delay, j);
             }
         }
 
         writeVisualize(temp, array, delay);
-        visualize(array);
+        visualize(array, sf::Time::Zero);
     }
 }
 
@@ -303,8 +307,7 @@ void radixSort(std::vector<int> &array, sf::Time delay = sf::microseconds(500)) 
         }
 
         writeVisualize(temp, array, delay);
-        visualize(array);
-        sleepPoll(delay);
+        visualize(array, sf::Time::Zero);
     }
 }
 
@@ -324,6 +327,15 @@ int main() {
     highlightSoundB.setVolume(10);
     highlightSoundA.setLoop(true);
     highlightSoundB.setLoop(true);
+
+    // initialize array
+    int arraySize = 256;
+    int lastArraySize = arraySize;
+
+    std::vector<int> array = std::vector<int>(arraySize);
+    for (int i = 0; i < array.size(); i++) {
+        array[i] = i + 1;
+    }
 
     // main loop
     while (window.isOpen()) {
@@ -362,35 +374,37 @@ int main() {
         ImGui::Combo("Algorithm", &algorithm, algorithms, IM_ARRAYSIZE(algorithms));
 
         // array size input
-        static int arraySize = 256;
         ImGui::InputInt("Array Size", &arraySize, 1, 4);
         arraySize = std::max(2, std::min(arraySize, 1024));
+
+        // resize array if array size changed
+        if (arraySize != lastArraySize) {
+            array = std::vector<int>(arraySize);
+            for (int i = 0; i < array.size(); i++) {
+                array[i] = i + 1;
+            }
+            lastArraySize = arraySize;
+        }
 
         // visualize button
         if (ImGui::Button("Visualize", ImVec2(100, 20))) {
             ImGui::End(); // end controls window early because it is unneeded during visualization
 
-            window.clear(sf::Color::Black);
+            // finish rendering controls window
+            window.clear();
             ImGui::SFML::Render(window);
             window.display();
-            ImGui::SFML::Update(window, deltaClock.restart());
-
-            std::vector<int> array = std::vector<int>(arraySize);
-            for (int i = 0; i < array.size(); i++) {
-                array[i] = i + 1;
-            }
 
             // remove framerate limit for sorting as it limits the speed of the sorting (disadvantage of single thread)
             window.setFramerateLimit(0);
 
             try {
-                visualize(array);
-                sleepPoll(sf::seconds(1));
+
+                visualize(array, sf::seconds(1));
 
                 shuffle(array);
 
-                visualize(array);
-                sleepPoll(sf::seconds(1));
+                visualize(array, sf::seconds(1));
 
                 switch (algorithm) {
                     case 0:
@@ -415,8 +429,7 @@ int main() {
                         break;
                 }
 
-                visualize(array);
-                sleepPoll(sf::seconds(1));
+                visualize(array, sf::seconds(1));
 
             } catch (std::exception &e) {
                 // do nothing because exception is thrown by stop button
@@ -427,7 +440,13 @@ int main() {
 
         //ImGui::ShowDemoWindow();
 
-        window.clear();
+        // draw array
+        sf::RenderTexture windowTexture;
+        windowTexture.create(window.getSize().x, window.getSize().y);
+        drawArray(windowTexture, array);
+
+        window.draw(sf::Sprite(windowTexture.getTexture()));
+
         ImGui::SFML::Render(window);
         window.display();
     }
