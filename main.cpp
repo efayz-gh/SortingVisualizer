@@ -2,14 +2,15 @@
 #include <SFML/Audio.hpp>
 
 #include <random>
+#include <iostream>
 
 #include "imgui.h"
 #include "imgui-SFML.h"
 
-unsigned int screenWidth = sf::VideoMode::getDesktopMode().width;
-unsigned int screenHeight = sf::VideoMode::getDesktopMode().height;
+const unsigned int screenWidth = sf::VideoMode::getDesktopMode().width;
+const unsigned int screenHeight = sf::VideoMode::getDesktopMode().height;
 
-sf::RenderWindow window(sf::VideoMode(screenWidth / 2, screenHeight / 2), "sorting");
+sf::RenderWindow window;
 sf::Clock deltaClock;
 
 sf::SoundBuffer soundBuffer;
@@ -18,6 +19,8 @@ sf::Sound highlightSoundB;
 
 const float maxPitch = 1.5;
 const float minPitch = 0.5;
+
+double sleepRatio = 1.0;
 
 void drawArray(sf::RenderTexture &target, std::vector<int> &array, int updateIndexA = -1, int updateIndexB = -1) {
 
@@ -90,6 +93,8 @@ void stopButtonWindow() {
 
 void visualize(std::vector<int> &array, sf::Time delay, int updateIndexA = -1, int updateIndexB = -1) {
 
+    delay = sf::microseconds(delay.asMicroseconds() / sleepRatio);
+
     sf::RenderTexture windowTexture;
     windowTexture.create(window.getSize().x, window.getSize().y);
 
@@ -122,6 +127,13 @@ void visualize(std::vector<int> &array, sf::Time delay, int updateIndexA = -1, i
         window.display();
 
     } while (clock.getElapsedTime() < delay);
+}
+
+void visualizeWait(std::vector<int> &array, sf::Time delay) {
+    double tmpRatio = sleepRatio;
+    sleepRatio = 1.0;
+    visualize(array, delay);
+    sleepRatio = tmpRatio;
 }
 
 void writeVisualize(std::vector<int> &src, std::vector<int> &dst, sf::Time delay) {
@@ -186,6 +198,7 @@ void selectionSort(std::vector<int> &array, sf::Time delay = sf::microseconds(25
 
                 visualize(array, delay, i, minIndex);
             }
+            visualize(array, delay, i, j);
         }
 
         std::swap(array[i], array[minIndex]);
@@ -193,7 +206,7 @@ void selectionSort(std::vector<int> &array, sf::Time delay = sf::microseconds(25
     }
 }
 
-void inplaceHeapSort(std::vector<int> &array, sf::Time delay = sf::microseconds(500)) {
+void heapSort(std::vector<int> &array, sf::Time delay = sf::microseconds(500)) {
 
     for (int i = 1; i < array.size(); i++) {
 
@@ -313,6 +326,9 @@ void radixSort(std::vector<int> &array, sf::Time delay = sf::microseconds(500)) 
 
 int main() {
 
+    // create window
+    window.create(sf::VideoMode(screenWidth / 2, screenHeight / 2), "sorting");
+
     // initialize ImGui
     if (!ImGui::SFML::Init(window))
         return 1;
@@ -398,13 +414,15 @@ int main() {
             // remove framerate limit for sorting as it limits the speed of the sorting (disadvantage of single thread)
             window.setFramerateLimit(0);
 
+            sleepRatio = arraySize / 1024.0;
+
             try {
 
-                visualize(array, sf::seconds(1));
+                visualizeWait(array, sf::seconds(1));
 
                 shuffle(array);
 
-                visualize(array, sf::seconds(1));
+                visualizeWait(array, sf::seconds(1));
 
                 switch (algorithm) {
                     case 0:
@@ -417,7 +435,7 @@ int main() {
                         selectionSort(array);
                         break;
                     case 3:
-                        inplaceHeapSort(array);
+                        heapSort(array);
                         break;
                     case 4:
                         mergeSort(array);
@@ -429,7 +447,7 @@ int main() {
                         break;
                 }
 
-                visualize(array, sf::seconds(1));
+                visualizeWait(array, sf::seconds(1));
 
             } catch (std::exception &e) {
                 // do nothing because exception is thrown by stop button
