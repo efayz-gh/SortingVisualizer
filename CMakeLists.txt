@@ -8,7 +8,7 @@ file(GLOB INCLUDE "include/*.h" "include/*.cpp")
 add_executable(sortingvisualizer main.cpp ${INCLUDE})
 
 set(SFML_STATIC_LIBRARIES TRUE)
-set(SFML_DIR "C:/libs/SFML/lib/cmake/SFML")
+set(SFML_DIR "C:/libs/SFML/lib/cmake/SFML") # path to SFMLConfig.cmake
 
 find_package(SFML COMPONENTS system window graphics audio network REQUIRED)
 

@@ -334,7 +334,7 @@ int main() {
         return 1;
 
     // load sound
-    if (!soundBuffer.loadFromFile("1000hz.wav"))
+    if (!soundBuffer.loadFromFile("sort.wav"))
         return 1;
 
     highlightSoundA.setBuffer(soundBuffer);
